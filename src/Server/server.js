@@ -6,7 +6,8 @@ import User from '../User/user';
 export default class Server extends Component {
 
   state = {
-    users: {}
+    users: {},
+    messageText: undefined
   }
 
   handleAddUser = (e) => {
@@ -61,6 +62,13 @@ export default class Server extends Component {
 
   handleCommunicateMessage = (message) => {
     this.state.users[message.recipient].ref.handleRecieveMessage(message);
+    //below just handles displaying the message
+    this.setState({messageText: message.content.body.substring(message.content.body.length-20, message.content.body.length)})
+    if (this.timeout) {clearTimeout(this.timeout)}
+    this.timeout = setTimeout(() => {
+      this.setState({messageText: undefined})
+      this.timeout = undefined
+    }, 2000)
   }
 
   render() {
@@ -68,6 +76,7 @@ export default class Server extends Component {
       <div className="Server">
         <div className="Server-Header">
           <h3 className="Server-Title">Server</h3>
+          {this.state.messageText && <p className="Server-Message">Message Seen: ...{this.state.messageText}</p>}
           <button className="Server-Add-User-Button" onClick={this.handleAddUser}>Add User</button>
         </div>
         <div className="Server-User-Holder">

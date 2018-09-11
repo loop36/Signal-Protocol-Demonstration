@@ -5,7 +5,6 @@
 .Server-Header {
     display: flex;
     flex-direction: row;
-    justify-content: center;
     background-color:rgb(34, 34, 34);
 }
 
@@ -13,6 +12,12 @@
     font-weight: bold;
     padding-left: 20px;
     color: white;
+}
+
+.Server-Message {
+    margin-left: auto;
+    color: white;
+    align-self: center;
 }
 
 .Server-Add-User-Button {
