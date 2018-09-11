@@ -1,0 +1,27 @@
+.Server {
+    height: calc(100vh - 195px);
+}
+
+.Server-Header {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    background-color:rgb(34, 34, 34);
+}
+
+.Server-Title {
+    font-weight: bold;
+    padding-left: 20px;
+    color: white;
+}
+
+.Server-Add-User-Button {
+    margin-left: auto;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-right: 20px;
+}
+
+.Server-User-Holder {
+    padding: 10px;
+}
