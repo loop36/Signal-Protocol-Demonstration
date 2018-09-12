@@ -113,29 +113,38 @@ export default class Server extends Component {
   //Handles sending the message to the server
   handleSendMessage = async (e) => {
     e.preventDefault();
-
-    const recipientPreKeyBundle = this.props.retrieveKeysforRecipient(this.state.recipient);
-    recipientPreKeyBundle.address = new libsignal.SignalProtocolAddress.fromString(recipientPreKeyBundle.address)
-    recipientPreKeyBundle.bundle.identityKey = util.toArrayBuffer(recipientPreKeyBundle.bundle.identityKey)
-    recipientPreKeyBundle.bundle.preKey.publicKey =  util.toArrayBuffer(recipientPreKeyBundle.bundle.preKey.publicKey)
-    recipientPreKeyBundle.bundle.signedPreKey.publicKey = util.toArrayBuffer(recipientPreKeyBundle.bundle.signedPreKey.publicKey)
-    recipientPreKeyBundle.bundle.signedPreKey.signature = util.toArrayBuffer(recipientPreKeyBundle.bundle.signedPreKey.signature)
+    
+    let usedPreKeyId = undefined
 
     if (!this.sessions[this.state.recipient]) {
+
+      const recipientPreKeyBundle = this.props.retrieveKeysforRecipient(this.state.recipient);
+      recipientPreKeyBundle.address = new libsignal.SignalProtocolAddress.fromString(recipientPreKeyBundle.address)
+      recipientPreKeyBundle.bundle.identityKey = util.toArrayBuffer(recipientPreKeyBundle.bundle.identityKey)
+      recipientPreKeyBundle.bundle.preKey.publicKey =  util.toArrayBuffer(recipientPreKeyBundle.bundle.preKey.publicKey)
+      recipientPreKeyBundle.bundle.signedPreKey.publicKey = util.toArrayBuffer(recipientPreKeyBundle.bundle.signedPreKey.publicKey)
+      recipientPreKeyBundle.bundle.signedPreKey.signature = util.toArrayBuffer(recipientPreKeyBundle.bundle.signedPreKey.signature)
+
       this.sessions[this.state.recipient] = new libsignal.SessionBuilder(this.store, recipientPreKeyBundle.address);
+      this.sessions[this.state.recipient].address = recipientPreKeyBundle.address
       await this.sessions[this.state.recipient].processPreKey(recipientPreKeyBundle.bundle)
+
+      usedPreKeyId = recipientPreKeyBundle.bundle.preKey.keyId
+
     }
 
     const messageText = util.toArrayBuffer(this.state.messageText);
-    const sessionCipher = new libsignal.SessionCipher(this.store, recipientPreKeyBundle.address);
+    const sessionCipher = new libsignal.SessionCipher(this.store, this.sessions[this.state.recipient].address);
     const messageObject = await sessionCipher.encrypt(messageText)
 
     let message = {
       sender: this.props.userName,
       senderAddress: this.address,
+      preKeyId: usedPreKeyId ? usedPreKeyId : undefined,
       recipient: this.state.recipient,
       content: messageObject
     }
+
     this.props.handleCommunicateMessage(message);
     this.handleUpdateIdentity();
   }
@@ -145,7 +154,7 @@ export default class Server extends Component {
 
     const sessionCipher = new libsignal.SessionCipher(this.store, message.senderAddress);
     if (message.content.type === 3) {
-      this.sessions[message.sender] = {}
+      this.sessions[message.sender] = {address: message.senderAddress}
       message.content = util.toString(await sessionCipher.decryptPreKeyWhisperMessage(message.content.body, 'binary'));
     } else {
       message.content = util.toString(await sessionCipher.decryptWhisperMessage(message.content.body, 'binary'));
@@ -155,6 +164,14 @@ export default class Server extends Component {
     newMessageArray.unshift(message);
     this.setState({receivedMessages: newMessageArray});
 
+    //Delete pre key for forward secrecy
+    if (message.preKeyId) {
+      console.log("Deleting used pre key");
+      this.store.removePreKey(message.preKeyId)
+      const preKeyIndex = this.preKeys.findIndex(o => o.keyId === message.preKeyId)
+      this.preKeys.splice(preKeyIndex, 1)
+    }
+
     this.handleUpdateIdentity();
   }
 
@@ -162,7 +179,7 @@ export default class Server extends Component {
 
     const {remainingPreKeys} = this.props.retrieveIdentityStatus(this.props.userName);
 
-    console.log("Pre keys remaining for " + this.props.userId  + ": " + remainingPreKeys);
+    console.log("Pre keys remaining for " + this.props.userName  + ": " + remainingPreKeys);
     
     if (remainingPreKeys < 5) {
       console.log("Creating new PreKeys");
